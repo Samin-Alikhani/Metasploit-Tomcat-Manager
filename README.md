@@ -40,13 +40,25 @@ A version banner or an open port is a lead, not proof of a vulnerability. I chec
 
 Visiting the Manager link presented a sign-in prompt. The Metasploit `auxiliary/scanner/http/tomcat_mgr_login` module tested its configured credential lists against the Manager path on the observed Tomcat port. It reported one successful pair. I used that pair in the browser and reached the Manager page, which displayed a WAR deployment interface.
 
+![Authenticated Tomcat Manager deployment interface](images/tomcat-manager.png)
+
+*Figure 1. The authenticated Manager page displayed the WAR deployment form. The browser address bar was cropped from this copy.*
+
 I selected `exploit/multi/http/tomcat_mgr_upload`, configured the assigned target and Tomcat port, supplied the verified Manager credentials, and selected `java/meterpreter/reverse_tcp`. The module check reported that the target appeared vulnerable. The exploit uploaded and executed a WAR payload, then opened a Meterpreter session. A filesystem listing from that session showed the target's root directories, including `/home`.
+
+![Meterpreter session and filesystem listing with addresses redacted](images/meterpreter-access-redacted.png)
+
+*Figure 2. The upload exploit opened a Meterpreter session that listed the target filesystem. The connection addresses are covered with opaque bars; the rest of the original screenshot is unchanged.*
 
 These are distinct observations: a working Manager login established access to the web application; the Meterpreter filesystem listing established access to the target filesystem through the exploit.
 
 ## Encrypted file recovery
 
 I searched recursively under `/home` using Meterpreter's filename glob for files ending in `-secret.txt`. The search returned one path. Reading it with its full path displayed the assigned recipe; an earlier relative-path read had failed in this session.
+
+![Recursive file search with the assigned filename redacted](images/file-search-redacted.png)
+
+*Figure 3. Meterpreter found one matching file under `/home`. The assigned file path is redacted in this public copy.*
 
 The target had an older OpenSSL version. I used `openssl enc` to create a **separate** AES-256-CBC encrypted copy, keeping the original file unchanged. The command used `-md sha1` because that target version did not offer the newer password-based derivation option available on Kali. OpenSSL prompted for the lab password rather than receiving it as a command-line argument.
 
@@ -62,7 +74,11 @@ openssl enc -d -aes-256-cbc -md sha1 -in <downloaded-copy> -out <reconstructed-f
 
 ![OpenSSL salted output header on the target](images/encrypted-file-header.png)
 
-*Figure 1. The separate encrypted copy exists on the target and begins with the `Salted__` header. The lab password is not shown.*
+*Figure 4. The separate encrypted copy exists on the target and begins with the `Salted__` header. The lab password is not shown.*
+
+![Meterpreter download of the encrypted copy](images/encrypted-download.png)
+
+*Figure 5. Meterpreter reports completion of the encrypted file transfer to Kali.*
 
 The plaintext recipe was readable in the reconstructed file on Kali. The password was not placed in the transfer command or included in the downloaded file. AES-256-CBC encrypted the content, but this lab used an older password derivation method for compatibility; I would choose a modern authenticated format and stronger password derivation for a new system.
 
